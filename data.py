@@ -5,6 +5,9 @@ import pickle
 from random import shuffle,seed
 import math
 from mne.filter import resample
+import matplotlib.pyplot as plt
+
+
 EEG_SAMPLE_RATE = 500 #Hz
 
 def to_onehot(labels):
@@ -53,10 +56,10 @@ def get_topography():
     return ch_coordinates,ch_names
 
 class Data(object):
-    def __init__(self,path_to_data,start_epoch,end_epoch,sample_rate=500):
+    def __init__(self,path_to_data,start_epoch,end_epoch,source_sample_rate=500):
         self.start_epoch = start_epoch  # seconds
         self.end_epoch = end_epoch
-        self.sample_rate = sample_rate
+        self.source_sample_rate = source_sample_rate
         self.path_to_data = path_to_data
         if len(path_to_data.split('/')[-1]) == 0:
             self.exp_name = path_to_data.split('/')[-2]
@@ -71,31 +74,9 @@ class Data(object):
         :return:
         '''
 
-        # duration = X.shape[1]*self.sample_rate
-        # downsample_factor = X.shape[1] / (resample_to * duration)
-        downsample_factor = self.sample_rate / resample_to
+        downsample_factor = self.source_sample_rate / resample_to
         return resample(X, up=1., down=downsample_factor, npad='auto', axis=1)
 
-# class DataProcessExperiment(Data):
-#     def __init__(self,path_to_data):
-#         start_epoch = -1.5 #seconds
-#         end_epoch = 1 #seconds
-#         Data.__init__(self,path_to_data,start_epoch)
-#
-#     def get_data(self,shuffle=False,start_window=0.200,end_window=0.500):
-#         """
-#         Returns:
-#             A tuple of 2 numpy arrays: data (Trials x Channels x Time) and labels
-#         """
-#         data_info = loadmat(os.path.join(self.path_to_data,'events.mat'))['events']['field_type'][0][0]
-#         start_window_ind = int((start_window - self.start_epoch)*self.sample_rate)
-#         end_window_ind = int((end_window - self.start_epoch)*self.sample_rate)
-#         indexes = [(i,(str[0][0] in ['ball','field'])) for i,str in enumerate(data_info) if str[0][0] in ['ball','ball_nT','field','field_nT']]
-#         indexes,labels = map(lambda x:list(x),zip(*indexes))
-#         data = loadmat(os.path.join(self.path_to_data,'eeg_epochs.mat'))['eeg_epochs'].transpose(2,0,1)
-#         if shuffle:
-#             return data_shuffle(data[indexes,start_window_ind:end_window_ind,:],labels)
-#         return data[indexes,start_window_ind:end_window_ind,:],labels
 
 class DataBuildClassifier(Data):
     def __init__(self,path_to_data):
@@ -110,8 +91,9 @@ class DataBuildClassifier(Data):
 
 
     def _baseline_normalization(self,X,baseline_window=()):
-        bl_start = int((baseline_window[0] - self.start_epoch) * self.sample_rate)
-        bl_end = int((baseline_window[1] - self.start_epoch) * self.sample_rate)
+        '''APPLY ONLY BEFORE RESAMPLING'''
+        bl_start = int((baseline_window[0] - self.start_epoch) * self.source_sample_rate)
+        bl_end = int((baseline_window[1] - self.start_epoch) * self.source_sample_rate)
         baseline = np.expand_dims(X[:, bl_start:bl_end, :].mean(axis=1), axis=1)
         X = X - baseline
         return X
@@ -138,16 +120,17 @@ class DataBuildClassifier(Data):
             y = np.hstack((np.ones(eegT.shape[2]),np.zeros(eegNT.shape[2])))
             #y = np.hstack(np.repeat([[1,0]],eegT.shape[2],axis=0),np.repeat([[0,1]],eegT.shape[2],axis=0))
 
-            if (resample_to is not None) and (resample_to != self.sample_rate):
+            if (resample_to is not None) and (resample_to != self.source_sample_rate):
                 X = self._resample(X, resample_to)
+                current_sample_rate = resample_to
             else:
-                resample_to = self.sample_rate
+                current_sample_rate = self.source_sample_rate
 
             time_indices=[]
             if windows is not None:
                 for win_start,win_end in windows:
-                    start_window_ind = int((win_start - self.start_epoch)*resample_to)
-                    end_window_ind = int((win_end - self.start_epoch)*resample_to)
+                    start_window_ind = int((win_start - self.start_epoch)*current_sample_rate)
+                    end_window_ind = int((win_end - self.start_epoch)*current_sample_rate)
                     time_indices.extend(range(start_window_ind,end_window_ind))
                 X,y = X[:,time_indices,:],y
 
@@ -156,69 +139,7 @@ class DataBuildClassifier(Data):
             res[subject]=(X,y)
         return res
 
-# class AllEventsDataBuildClassifier(DataBuildClassifier):
-#     def __init__(self,path_to_data,target_events=None,nontarget_events=None):
-#         '''
-#         :param path_to_data: string, path to folder with all experiments
-#         :param target_events: list of strings (target events). Possible events "ClickedToUnlock" (button press),
-#   #                   "ballSelect", "ballMove"
-#         :param nontarget_events: string, path to folder with all experiments
-#         '''
-#         self.target_events = target_events
-#         self.nontarget_events = nontarget_events
-#         super(AllEventsDataBuildClassifier, self).__init__( path_to_data)
-#
-#     def manage_timestamps(self,timestamps):
-#
-#
-#
-#     def get_data(self,subjects,shuffle=True,windows=None,baseline_window=(),resample_to=None):
-#         '''
-#
-#         :param subjects: list subject's numbers, wich data we want to load
-#         :param shuffle: bool
-#         :param windows: list of tuples. Each tuple contains two floats - start and end of window in seconds
-#         :param baseline_window:
-#         :param resample_to: int, Hz - new sample rate
-#         :return: Dict. {Subject_number:tuple of 2 numpy arrays: data (Trials x Time x Channels) and labels}
-#         '''
-#
-#         res = {}
-#         for subject in subjects:
-#             for event in self.target_events:
-#             eegT = np.concatenate(
-#                 [loadmat(os.path.join(self.path_to_data, str(subject), 'eegT_%s.mat' %event))['epochs'] for event in self.target_events],
-#                 axis=2)
-#
-#
-#             eegNT = np.concatenate(
-#                 [loadmat(os.path.join(self.path_to_data, str(subject), 'eegNT_%s.mat' %event))['epochs'] for event in self.nontarget_events],
-#                 axis=2)
-#
-#
-#             X = np.concatenate((eegT, eegNT), axis=-1).transpose(2, 0, 1)
-#             if len(baseline_window):
-#                 baseline = self._baseline_normalization(X, baseline_window)
-#                 baseline = np.expand_dims(baseline, axis=1)
-#                 X = X - baseline
-#             y = np.hstack((np.ones(eegT.shape[2]), np.zeros(eegNT.shape[2])))
-#             # y = np.hstack(np.repeat([[1,0]],eegT.shape[2],axis=0),np.repeat([[0,1]],eegT.shape[2],axis=0))
-#
-#             if (resample_to is not None) and (resample_to != self.sample_rate):
-#                 X, y = self._resample(X, y, resample_to)
-#
-#             time_indices = []
-#             if windows is not None:
-#                 for win_start, win_end in windows:
-#                     start_window_ind = int((win_start - self.start_epoch) * self.sample_rate)
-#                     end_window_ind = int((win_end - self.start_epoch) * self.sample_rate)
-#                     time_indices.extend(range(start_window_ind, end_window_ind))
-#                 X, y = X[:, time_indices, :], y
-#
-#             if shuffle:
-#                 X, y = data_shuffle(X, y)
-#             res[subject] = (X, y)
-#         return res
+
 
 
 class OldData(DataBuildClassifier):
@@ -280,14 +201,17 @@ class OldData(DataBuildClassifier):
             y = np.hstack((np.ones(eegT.shape[0]),np.zeros(eegNT.shape[0])))
             #y = np.hstack(np.repeat([[1,0]],eegT.shape[2],axis=0),np.repeat([[0,1]],eegT.shape[2],axis=0))
 
-            if (resample_to is not None) and (resample_to != self.sample_rate):
-                X, y = self._resample(X, y, resample_to)
+            if (resample_to is not None) and (resample_to != self.source_sample_rate):
+                X = self._resample(X, resample_to)
+                current_sample_rate = resample_to
+            else:
+                current_sample_rate = self.source_sample_rate
 
             time_indices=[]
             if windows is not None:
                 for win_start,win_end in windows:
-                    start_window_ind = int((win_start - self.start_epoch)*self.sample_rate)
-                    end_window_ind = int((win_end - self.start_epoch)*self.sample_rate)
+                    start_window_ind = int((win_start - self.start_epoch)*current_sample_rate)
+                    end_window_ind = int((win_end - self.start_epoch)*current_sample_rate)
                     time_indices.extend(range(start_window_ind,end_window_ind))
                 X,y = X[:,time_indices,:],y
 
@@ -298,6 +222,8 @@ class OldData(DataBuildClassifier):
 
 
 if __name__ == '__main__':
-    data = DataBuildClassifier('/home/likan_blk/BCI/NewData/').get_data([33],shuffle=True,
-                                                                               windows=[(0.2, 0.5)],baseline_window=(0.2, 0.3))
+    data = DataBuildClassifier('/home/likan_blk/BCI/NewData/')
+    tmp = data.get_data([25,26,27,28,29,30,32,33,34,35,36,37,38],shuffle=False, windows=[(0,0.7)],baseline_window=(0.2,0.3),resample_to=323)
+    pass
+
     
