@@ -5,7 +5,7 @@ import pickle
 from random import shuffle,seed
 import math
 from mne.filter import resample
-import matplotlib.pyplot as plt
+
 
 
 EEG_SAMPLE_RATE = 500 #Hz
