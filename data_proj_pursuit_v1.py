@@ -38,8 +38,8 @@ class DataProjPursuit(Data):
         super(DataProjPursuit, self).__init__(path_to_data,start_epoch,end_epoch)
 
     def _baseline_normalization(self,X,baseline_window=()):
-        bl_start = int((baseline_window[0] - self.start_epoch) * self.sample_rate)
-        bl_end = int((baseline_window[1] - self.start_epoch) * self.sample_rate)
+        bl_start = int((baseline_window[0] - self.start_epoch) * self.source_sample_rate)
+        bl_end = int((baseline_window[1] - self.start_epoch) * self.source_sample_rate)
         baseline = np.expand_dims(X[:, bl_start:bl_end, :].mean(axis=1), axis=1)
         X = X - baseline
         return X
@@ -83,11 +83,11 @@ class DataProjPursuit(Data):
             aug_eeg,_ = self.get_augmented_epochs(eeg[eeg_tr_ind], corrected_track_time[eeg_tr_ind], window, step=aug_step)
 
         if window is not None:
-            start_window_ind = int((window[0] - self.start_epoch) * self.sample_rate)
-            end_window_ind = int((window[1] - self.start_epoch) * self.sample_rate)
+            start_window_ind = int((window[0] - self.start_epoch) * self.source_sample_rate)
+            end_window_ind = int((window[1] - self.start_epoch) * self.source_sample_rate)
             eeg = eeg[:, start_window_ind:end_window_ind, :]
 
-        if (resample_to is not None) and (resample_to != self.sample_rate):
+        if (resample_to is not None) and (resample_to != self.self.source_sample_rate):
             eeg = self._resample(eeg, resample_to)
             aug_eeg = self._resample(aug_eeg, resample_to)
 
@@ -98,7 +98,7 @@ class DataProjPursuit(Data):
 
         return eeg_tr,aug_eeg,eeg_tst
 
-    def get_event_data(self,subj,event,rej_thrs,resample_to,window=(-0.4,0),eeg_ch = range(19), baseline_window=(-0.1,0), shuffle=True):
+    def get_event_data(self,subj,event,rej_thrs,resample_to,window=(-0.4,0),eeg_ch = range(19), baseline_window=(-0.1,0), shuffle=False):
         '''
 
         :param subject: subjects's index to load
@@ -120,12 +120,12 @@ class DataProjPursuit(Data):
             eeg = self._baseline_normalization(eeg, baseline_window)
 
         if window is not None:
-            start_window_ind = int((window[0] - self.start_epoch) * self.sample_rate)
-            end_window_ind = int((window[1] - self.start_epoch) * self.sample_rate)
+            start_window_ind = int((window[0] - self.start_epoch) * self.source_sample_rate)
+            end_window_ind = int((window[1] - self.start_epoch) * self.source_sample_rate)
             eeg = eeg[:, start_window_ind:end_window_ind, :]
 
 
-        if (resample_to is not None) and (resample_to != self.sample_rate):
+        if (resample_to is not None) and (resample_to != self.source_sample_rate):
             eeg = self._resample(eeg, resample_to)
 
         if shuffle:
@@ -175,9 +175,9 @@ class DataProjPursuit(Data):
 
     def get_augmented_epochs(self, eeg, track_times, window=(-0.4, 0), step=0.05):
 
-        start_window_ind = int((window[0] - self.start_epoch) * self.sample_rate)
-        end_window_ind = int((window[1] - self.start_epoch) * self.sample_rate)
-        step = int(step * self.sample_rate)
+        start_window_ind = int((window[0] - self.start_epoch) * self.source_sample_rate)
+        end_window_ind = int((window[1] - self.start_epoch) * self.source_sample_rate)
+        step = int(step * self.source_sample_rate)
 
         # data_mat = loadmat(os.path.join(self.path_to_data, str(subject), '%s.mat' % t_event))
         # eeg = data_mat['data']
@@ -199,8 +199,8 @@ class DataProjPursuit(Data):
         if times_beg is None:
             times_beg = np.arange(-0.3, -0.05, 0.02)
         times_end = times_beg + 0.05
-        ts_beg = np.round((times_beg - self.start_epoch) * self.sample_rate).astype(np.int32) - 1
-        ts_end = np.round((times_end - self.start_epoch) * self.sample_rate).astype(np.int32)
+        ts_beg = np.round((times_beg - self.start_epoch) * self.source_sample_rate).astype(np.int32) - 1
+        ts_end = np.round((times_end - self.start_epoch) * self.source_sample_rate).astype(np.int32)
         x = np.zeros((trials, chan_num,len(times_beg)))
 
         for t in range(len(ts_beg)):
