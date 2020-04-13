@@ -117,7 +117,7 @@ class DataBuildClassifier(Data):
             X = np.concatenate((eegT,eegNT),axis=-1).transpose(2,0,1)
             if len(baseline_window):
                 X = self._baseline_normalization(X,baseline_window)
-            y = np.hstack((np.ones(eegT.shape[2]),np.zeros(eegNT.shape[2])))
+            y = np.hstack((np.ones(eegT.shape[2],dtype=np.uint8),np.zeros(eegNT.shape[2],dtype=np.uint8)))
             #y = np.hstack(np.repeat([[1,0]],eegT.shape[2],axis=0),np.repeat([[0,1]],eegT.shape[2],axis=0))
 
             if (resample_to is not None) and (resample_to != self.source_sample_rate):
@@ -223,7 +223,8 @@ class OldData(DataBuildClassifier):
 
 if __name__ == '__main__':
     data = DataBuildClassifier('/home/likan_blk/BCI/NewData/')
-    tmp = data.get_data([25,26,27,28,29,30,32,33,34,35,36,37,38],shuffle=False, windows=[(0,0.7)],baseline_window=(0.2,0.3),resample_to=323)
+    tmp = data.get_data([25,26,27,28,29,30,32,33,34,35,36,37,38],shuffle=False, windows=[(0.2,0.5)],baseline_window=(0.2,0.3),resample_to=323)
+
     pass
 
     

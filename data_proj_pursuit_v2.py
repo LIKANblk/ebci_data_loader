@@ -31,7 +31,8 @@ class DataProjPursuit_v2(Data):
         '''
         # data_mat = loadmat(os.path.join(self.path_to_data, 'clean_data.mat'))
         # eeg = data_mat['all_EEG_online'][]
-        eeg = loadmat(os.path.join(self.path_to_data,'subj %02d' %subj,'%s.mat' %event))['EEG']
+        eeg = loadmat(os.path.join(self.path_to_data,'subj %d' %subj,'%s.mat' %event))['EEG']
+        eeg = eeg.astype('float64')
         eeg = eeg[:,:,eeg_ch]
         if len(baseline_window):
             eeg = self._baseline_normalization(eeg, baseline_window)
@@ -56,7 +57,7 @@ class DataProjPursuit_v2(Data):
         return eeg
 
 if __name__ =='__main__':
-    data = DataProjPursuit_v2('/home/likan_blk/BCI/ProjPursuitData/16-Jul-2019_16-00-03 without_speech_filt')
+    data = DataProjPursuit_v2('/home/likan_blk/BCI/ProjPursuitData/16-Mar-2020_13-35-45')
     all_subjects = [subj for subj  in range(1,21) if subj not in [12,13]]
     all_events = ['cl%d' %i for i in range(1,5)]
     # data.get_event_data(subj=all_subjects[0], event = all_events[0],resample_to=None, window=(-0.2, 0), eeg_ch=range(19),
